@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fiszki</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500/30">
+  <div class="mx-auto max-w-5xl px-4 py-8">
+    <!-- Top Bar & Status -->
+    <header class="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-lg font-bold text-indigo-400 ring-1 ring-indigo-500/30">
+          F
+        </div>
+        <h1 class="text-lg font-semibold tracking-tight text-white">Fiszki</h1>
+      </div>
+      <div class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-300">
+        <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400"></span>
+        <span id="status" class="break-all">Ready.</span>
+      </div>
+    </header>
+
+    <!-- MODE SWITCHER + ACTIVE DECK BANNER -->
+    <section class="mb-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 p-4 shadow-lg">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-indigo-300">Current Deck</div>
+          <div id="deck-info" class="mt-0.5 text-sm font-medium text-white">
+            No deck loaded yet. Enter a Deck ID to begin.
+          </div>
+          <div id="deck-meta-pills" class="mt-2 flex flex-wrap gap-2 text-xs"></div>
+        </div>
+
+        <div class="flex shrink-0 rounded-xl border border-slate-700/80 bg-slate-950/90 p-1">
+          <button
+            id="mode-study-btn"
+            type="button"
+            class="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition"
+          >
+            Study Mode
+          </button>
+          <button
+            id="mode-create-btn"
+            type="button"
+            class="rounded-lg px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+          >
+            Creation Mode
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== STUDY MODE ==================== -->
+    <div id="study-mode-view" class="space-y-6">
+      <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white">Open a Deck</h2>
+            <p class="text-xs text-slate-400">Enter a Deck ID or open a shared <code class="text-indigo-300">?deck=1</code> link.</p>
+          </div>
+          <div class="flex gap-2">
+            <input
+              id="study-deck-id"
+              type="number"
+              placeholder="Deck ID"
+              class="w-36 rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <button
+              id="study-open-btn"
+              type="button"
+              class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+            >
+              Load Deck
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white">
+              Study Queue <span id="queue-count" class="ml-1 rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-medium text-indigo-300">0 left</span>
+            </h2>
+            <p class="text-xs text-slate-400">
+              <kbd class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-200">Space</kbd> Show Answer ·
+              <kbd class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-200">1</kbd> Don't Know ·
+              <kbd class="rounded bg-slate-800 px-1.5 py-0.5 text-slate-200">2</kbd> Know
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="shuffle-queue-btn"
+              type="button"
+              class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700"
+            >
+              Shuffle Queue
+            </button>
+            <button
+              id="restart-queue-btn"
+              type="button"
+              class="rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-indigo-500/25"
+            >
+              Reset &amp; Shuffle All
+            </button>
+          </div>
+        </div>
+
+        <div id="study-area" class="rounded-xl border border-slate-800 bg-slate-950/80 p-6 text-sm text-slate-300">
+          Enter a Deck ID above to start studying.
+        </div>
+      </section>
+    </div>
+
+    <!-- ==================== CREATION MODE ==================== -->
+    <div id="create-mode-view" style="display:none;" class="space-y-6">
+      <section id="auth-box" class="grid gap-6 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg">
+          <h2 class="mb-1 text-base font-semibold text-white">Register</h2>
+          <p class="mb-4 text-xs text-slate-400">Create an account to build and edit decks.</p>
+          <div class="space-y-3">
+            <input
+              id="reg-username"
+              type="text"
+              autocomplete="username"
+              placeholder="Username"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <input
+              id="reg-pass"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Password (min 4 characters)"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <button
+              id="reg-btn"
+              type="button"
+              class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 active:scale-[0.99]"
+            >
+              Register
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg">
+          <h2 class="mb-1 text-base font-semibold text-white">Log In</h2>
+          <p class="mb-4 text-xs text-slate-400">Sign in to manage your decks and cards.</p>
+          <div class="space-y-3">
+            <input
+              id="login-username"
+              type="text"
+              autocomplete="username"
+              placeholder="Username"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <input
+              id="login-pass"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Password"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <button
+              id="login-btn"
+              type="button"
+              class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 active:scale-[0.99]"
+            >
+              Log In
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div id="creator-workspace" style="display:none;" class="space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
+          <div class="text-sm text-slate-300">
+            Signed in as <b id="user-name" class="font-semibold text-white"></b>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              id="logout-btn"
+              type="button"
+              class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700"
+            >
+              Log Out
+            </button>
+            <button
+              id="delete-account-btn"
+              type="button"
+              class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+            >
+              Delete Account
+            </button>
+          </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+            <h2 class="text-base font-semibold text-white">Your Decks</h2>
+            <p class="mt-0.5 mb-4 text-xs text-slate-400">Select a deck, copy its link/ID to share, or delete it.</p>
+
+            <div class="mb-4 flex gap-2">
+              <input
+                id="new-deck-opis"
+                type="text"
+                placeholder="Deck name"
+                class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                id="create-deck-btn"
+                type="button"
+                class="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              >
+                Create
+              </button>
+            </div>
+
+            <ul id="my-decks-list" class="max-h-64 space-y-2 overflow-y-auto pr-1 text-sm"></ul>
+          </section>
+
+          <div class="space-y-6">
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <h2 class="text-base font-semibold text-white">Inspect Deck by ID</h2>
+              <p class="mt-0.5 mb-3 text-xs text-slate-400">Open any deck by its ID number.</p>
+              <div class="flex gap-2">
+                <input
+                  id="create-deck-id"
+                  type="number"
+                  placeholder="Deck ID"
+                  class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                />
+                <button
+                  id="create-open-btn"
+                  type="button"
+                  class="shrink-0 rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-white ring-1 ring-slate-700 transition hover:bg-slate-700"
+                >
+                  Open Deck
+                </button>
+              </div>
+              <div id="foreign-deck-notice" style="display:none;" class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-2.5 text-xs text-amber-200">
+                <span>Read-only: this deck belongs to another user.</span>
+                <button
+                  id="clone-deck-btn"
+                  type="button"
+                  class="shrink-0 rounded-lg bg-amber-500 px-3 py-1 font-semibold text-slate-950 hover:bg-amber-400"
+                >
+                  Clone to My Decks
+                </button>
+              </div>
+            </section>
+
+            <section id="add-card-panel" class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <h2 class="text-base font-semibold text-white">Add Card</h2>
+              <p class="mt-0.5 mb-3 text-xs text-slate-400">Add a new flashcard to your selected deck.</p>
+              <div class="space-y-2.5">
+                <input
+                  id="fiszka-front"
+                  type="text"
+                  placeholder="Front"
+                  class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  id="fiszka-back"
+                  type="text"
+                  placeholder="Back"
+                  class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                />
+                <button
+                  id="add-fiszka-btn"
+                  type="button"
+                  class="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
+                >
+                  Add Card
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg">
+          <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="text-base font-semibold text-white">
+              Cards <span id="cards-count" class="ml-1 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-300">0</span>
+            </h2>
+            <input
+              id="card-filter"
+              type="search"
+              placeholder="Search cards..."
+              class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none sm:w-64"
+            />
+          </div>
+          <ul id="cards-list" class="space-y-2.5 text-sm"></ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const supabase = createClient(
+      'https://mmzihhwebnxovvqhpinx.supabase.co',
+      'sb_publishable_raWi0-_mPORIxIdiWeEQSg_YiYEumjk'
+    );
+
+    const USERS_TABLE = 'Uzytkownicy';
+    const STORAGE_KEY = 'fiszki_user_session_v3';
+
+    let currentMode = 'study';
+    let currentUser = null; // { id, user_id, username, password_hash }
+    let activeDeck = null;  // { id, opis, id_fiszek: number[], user_id }
+    let baseCards = [];
+    let studyQueue = [];
+    let knownCount = 0;
+    let showAnswer = false;
+    let editingCardId = null;
+
+    const statusEl = document.getElementById('status');
+    const deckInfoEl = document.getElementById('deck-info');
+    const deckMetaPillsEl = document.getElementById('deck-meta-pills');
+    const modeStudyBtn = document.getElementById('mode-study-btn');
+    const modeCreateBtn = document.getElementById('mode-create-btn');
+    const studyModeView = document.getElementById('study-mode-view');
+    const createModeView = document.getElementById('create-mode-view');
+    const studyDeckIdEl = document.getElementById('study-deck-id');
+    const createDeckIdEl = document.getElementById('create-deck-id');
+    const foreignDeckNoticeEl = document.getElementById('foreign-deck-notice');
+    const addCardPanelEl = document.getElementById('add-card-panel');
+    const authBox = document.getElementById('auth-box');
+    const creatorWorkspace = document.getElementById('creator-workspace');
+    const userNameEl = document.getElementById('user-name');
+    const regUsernameEl = document.getElementById('reg-username');
+    const regPassEl = document.getElementById('reg-pass');
+    const loginUsernameEl = document.getElementById('login-username');
+    const loginPassEl = document.getElementById('login-pass');
+    const myDecksListEl = document.getElementById('my-decks-list');
+    const newDeckOpisEl = document.getElementById('new-deck-opis');
+    const fiszkaFrontEl = document.getElementById('fiszka-front');
+    const fiszkaBackEl = document.getElementById('fiszka-back');
+    const queueCountEl = document.getElementById('queue-count');
+    const studyAreaEl = document.getElementById('study-area');
+    const cardsCountEl = document.getElementById('cards-count');
+    const cardFilterEl = document.getElementById('card-filter');
+    const cardsListEl = document.getElementById('cards-list');
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function syncDeckUrlParam(deckId) {
+      try {
+        const url = new URL(window.location.href);
+        if (deckId != null && Number(deckId) > 0) {
+          url.searchParams.set('deck', String(Number(deckId)));
+        } else {
+          url.searchParams.delete('deck');
+        }
+        window.history.replaceState({}, '', url);
+      } catch {
+        // Ignore history errors in sandboxed iframes
+      }
+    }
+
+    function getDeckShareUrl(deckId) {
+      try {
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.hash = '';
+        url.searchParams.set('deck', String(Number(deckId)));
+        return url.toString();
+      } catch {
+        return `?deck=${Number(deckId)}`;
+      }
+    }
+
+    function isDeckOwner() {
+      return Boolean(
+        currentUser &&
+        activeDeck &&
+        currentUser.user_id != null &&
+        String(activeDeck.user_id) === String(currentUser.user_id)
+      );
+    }
+
+    function syncOwnerControls() {
+      if (!activeDeck) {
+        foreignDeckNoticeEl.style.display = 'none';
+        addCardPanelEl.style.display = 'none';
+        return;
+      }
+
+      if (isDeckOwner()) {
+        foreignDeckNoticeEl.style.display = 'none';
+        addCardPanelEl.style.display = 'block';
+      } else {
+        foreignDeckNoticeEl.style.display = 'flex';
+        addCardPanelEl.style.display = 'none';
+        editingCardId = null;
+      }
+    }
+
+    function clearActiveDeck() {
+      activeDeck = null;
+      baseCards = [];
+      studyQueue = [];
+      knownCount = 0;
+      showAnswer = false;
+      editingCardId = null;
+      studyDeckIdEl.value = '';
+      createDeckIdEl.value = '';
+      syncDeckUrlParam(null);
+      syncOwnerControls();
+      renderActiveDeckHeader();
+      renderStudy();
+      renderCardsList();
+    }
+
+    function setMode(mode) {
+      currentMode = mode === 'create' ? 'create' : 'study';
+
+      if (currentMode === 'study') {
+        studyModeView.style.display = 'block';
+        createModeView.style.display = 'none';
+        modeStudyBtn.className = 'rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition';
+        modeCreateBtn.className = 'rounded-lg px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white';
+      } else {
+        studyModeView.style.display = 'none';
+        createModeView.style.display = 'block';
+        modeCreateBtn.className = 'rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition';
+        modeStudyBtn.className = 'rounded-lg px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white';
+      }
+    }
+
+    modeStudyBtn.addEventListener('click', () => setMode('study'));
+    modeCreateBtn.addEventListener('click', () => setMode('create'));
+
+    async function hashPassword(username, password) {
+      const data = new TextEncoder().encode(`${username.toLowerCase()}:${password}`);
+      const buf = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    function toIdArray(val) {
+      if (!Array.isArray(val)) return [];
+      return val.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0);
+    }
+
+    function resolveUserId(row) {
+      if (!row) return null;
+      return row.user_id ?? row.id ?? null;
+    }
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    async function copyText(text, successMsg) {
+      try {
+        await navigator.clipboard.writeText(String(text));
+        setStatus(successMsg || `Copied: ${text}`);
+      } catch {
+        setStatus(String(text));
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    function renderActiveDeckHeader() {
+      deckMetaPillsEl.innerHTML = '';
+      if (!activeDeck) {
+        deckInfoEl.textContent = 'No deck loaded yet. Enter a Deck ID to begin.';
+        return;
+      }
+
+      deckInfoEl.innerHTML =
+        `<span class="rounded-lg bg-indigo-500/20 px-2 py-0.5 text-xs font-bold text-indigo-300">ID ${activeDeck.id}</span> ` +
+        `<span class="text-base font-semibold text-white">${escapeHtml(activeDeck.opis)}</span>`;
+
+      const countPill = document.createElement('span');
+      countPill.className = 'rounded-lg border border-slate-700/80 bg-slate-950/80 px-2.5 py-1 text-slate-300';
+      countPill.textContent = `${baseCards.length} ${baseCards.length === 1 ? 'card' : 'cards'}`;
+      deckMetaPillsEl.appendChild(countPill);
+
+      const shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.className = 'rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-indigo-200 transition hover:bg-indigo-500/20';
+      shareBtn.textContent = 'Copy Share Link';
+      shareBtn.addEventListener('click', () => {
+        const link = getDeckShareUrl(activeDeck.id);
+        copyText(link, `Copied link: ${link}`);
+      });
+      deckMetaPillsEl.appendChild(shareBtn);
+
+      if (currentUser) {
+        const rolePill = document.createElement('span');
+        rolePill.className = isDeckOwner()
+          ? 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-emerald-300'
+          : 'rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-300';
+        rolePill.textContent = isDeckOwner() ? 'Owner' : 'Read-only';
+        deckMetaPillsEl.appendChild(rolePill);
+      }
+    }
+
+    async function deleteDeck(deckRow) {
+      if (!currentUser) return;
+      const confirmed = window.confirm(
+        `Delete deck "${deckRow.opis}" and all its flashcards? This cannot be undone.`
+      );
+      if (!confirmed) return;
+
+      const { error } = await supabase.rpc('delete_owned_deck', {
+        p_username: currentUser.username,
+        p_password_hash: currentUser.password_hash,
+        p_deck_id: Number(deckRow.id)
+      });
+
+      if (error) {
+        setStatus('Could not delete deck: ' + error.message);
+        return;
+      }
+
+      if (activeDeck && Number(activeDeck.id) === Number(deckRow.id)) {
+        clearActiveDeck();
+      }
+
+      await loadMyDecks();
+      setStatus(`Deleted deck "${deckRow.opis}".`);
+    }
+
+    async function loadMyDecks() {
+      myDecksListEl.innerHTML = '';
+      if (!currentUser || !currentUser.user_id) return;
+
+      const { data, error } = await supabase
+        .from('Talie Fiszek')
+        .select('id, opis, id_fiszek, user_id')
+        .eq('user_id', currentUser.user_id)
+        .order('id', { ascending: false });
+
+      if (error) {
+        setStatus('Could not load decks: ' + error.message);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        myDecksListEl.innerHTML = '<li class="rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-400">No decks yet. Create one above.</li>';
+        return;
+      }
+
+      for (const row of data) {
+        const ids = toIdArray(row.id_fiszek);
+        const isSelected = activeDeck && Number(activeDeck.id) === Number(row.id);
+
+        const li = document.createElement('li');
+        li.className = isSelected
+          ? 'flex items-center justify-between gap-2 rounded-xl border border-indigo-500/60 bg-indigo-950/35 px-3.5 py-2.5'
+          : 'flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5';
+
+        const meta = document.createElement('div');
+        meta.className = 'min-w-0 flex-1';
+        meta.innerHTML =
+          `<span class="font-medium text-white">${escapeHtml(row.opis)}</span> ` +
+          `<span class="text-xs text-slate-400">· ID ${row.id} · ${ids.length} ${ids.length === 1 ? 'card' : 'cards'}</span>` +
+          (isSelected ? ' <span class="ml-1 rounded bg-indigo-500/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-indigo-200">Active</span>' : '');
+
+        const actions = document.createElement('div');
+        actions.className = 'flex shrink-0 gap-1.5';
+
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.textContent = isSelected ? 'Selected' : 'Select';
+        openBtn.className = isSelected
+          ? 'rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white'
+          : 'rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700';
+        openBtn.addEventListener('click', () => {
+          studyDeckIdEl.value = row.id;
+          createDeckIdEl.value = row.id;
+          openDeck(row.id);
+        });
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.textContent = 'Copy Link';
+        copyBtn.className = 'rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800';
+        copyBtn.addEventListener('click', () => {
+          const link = getDeckShareUrl(row.id);
+          copyText(link, `Copied link: ${link}`);
+        });
+
+        const delDeckBtn = document.createElement('button');
+        delDeckBtn.type = 'button';
+        delDeckBtn.textContent = 'Delete';
+        delDeckBtn.className = 'rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs text-rose-300 hover:bg-rose-500/20';
+        delDeckBtn.addEventListener('click', () => deleteDeck(row));
+
+        actions.append(openBtn, copyBtn, delDeckBtn);
+        li.append(meta, actions);
+        myDecksListEl.appendChild(li);
+      }
+    }
+
+    function initQueue(cards, shouldShuffle = true) {
+      studyQueue = shouldShuffle ? shuffleArray(cards) : [...cards];
+      knownCount = 0;
+      showAnswer = false;
+      renderStudy();
+    }
+
+    async function openDeck(deckId, options = {}) {
+      const { preserveQueue = false } = options;
+      const idNum = Number(deckId);
+      if (!idNum) {
+        setStatus('Enter a valid Deck ID.');
+        return;
+      }
+
+      const { data: deckRow, error: deckErr } = await supabase
+        .from('Talie Fiszek')
+        .select('id, opis, id_fiszek, user_id')
+        .eq('id', idNum)
+        .single();
+
+      if (deckErr || !deckRow) {
+        setStatus('Deck not found.');
+        return;
+      }
+
+      const cardIds = toIdArray(deckRow.id_fiszek);
+      activeDeck = {
+        id: Number(deckRow.id),
+        opis: String(deckRow.opis),
+        id_fiszek: cardIds,
+        user_id: deckRow.user_id
+      };
+
+      syncDeckUrlParam(activeDeck.id);
+
+      if (cardIds.length === 0) {
+        baseCards = [];
+      } else {
+        const { data: cardsData, error: cardsErr } = await supabase
+          .from('Fiszki')
+          .select('id, front, back, user_id')
+          .in('id', cardIds);
+
+        if (cardsErr) {
+          setStatus('Could not load cards: ' + cardsErr.message);
+          return;
+        }
+
+        const mapById = new Map((cardsData ?? []).map((c) => [Number(c.id), c]));
+        baseCards = cardIds.map((cid) => mapById.get(cid)).filter(Boolean);
+      }
+
+      if (preserveQueue) {
+        const validById = new Map(baseCards.map((c) => [Number(c.id), c]));
+        studyQueue = studyQueue.filter((c) => validById.has(Number(c.id)));
+        if (studyQueue.length === 0 && baseCards.length > 0 && knownCount === 0) {
+          studyQueue = shuffleArray(baseCards);
+        }
+        showAnswer = false;
+        renderStudy();
+      } else {
+        initQueue(baseCards, true);
+      }
+
+      syncOwnerControls();
+      renderActiveDeckHeader();
+      renderCardsList();
+      if (currentUser) {
+        await loadMyDecks();
+      }
+      setStatus(`Loaded "${activeDeck.opis}".`);
+    }
+
+    function answerCurrentCard(knowsAnswer) {
+      if (!activeDeck || studyQueue.length === 0 || !showAnswer) return;
+
+      const currentCard = studyQueue.shift();
+      showAnswer = false;
+
+      if (knowsAnswer) {
+        knownCount += 1;
+        setStatus('Card marked as Know.');
+      } else {
+        studyQueue.push(currentCard);
+        setStatus('Moved card to back of queue.');
+      }
+
+      renderStudy();
+    }
+
+    function renderStudy() {
+      studyAreaEl.innerHTML = '';
+
+      if (!activeDeck) {
+        queueCountEl.textContent = '0 left';
+        studyAreaEl.textContent = 'Enter a Deck ID above to start studying.';
+        return;
+      }
+
+      queueCountEl.textContent = `${studyQueue.length} left`;
+
+      if (baseCards.length === 0) {
+        studyAreaEl.textContent = 'This deck has no cards yet.';
+        return;
+      }
+
+      if (studyQueue.length === 0) {
+        const doneBox = document.createElement('div');
+        doneBox.className = 'space-y-3 text-center';
+        doneBox.innerHTML =
+          `<div class="text-base font-semibold text-emerald-300">Session complete!</div>` +
+          `<div class="text-xs text-slate-400">You knew ${knownCount} of ${baseCards.length} cards.</div>`;
+
+        const againBtn = document.createElement('button');
+        againBtn.type = 'button';
+        againBtn.textContent = 'Shuffle & Study Again';
+        againBtn.className = 'rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500';
+        againBtn.addEventListener('click', () => {
+          initQueue(baseCards, true);
+          setStatus('Shuffled a new study queue.');
+        });
+
+        doneBox.appendChild(againBtn);
+        studyAreaEl.appendChild(doneBox);
+        return;
+      }
+
+      const card = studyQueue[0];
+
+      const top = document.createElement('div');
+      top.className = 'mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400';
+      top.innerHTML =
+        `<span>Remaining: <b class="text-white">${studyQueue.length}</b></span>` +
+        `<span>Known: <b class="text-emerald-300">${knownCount}</b></span>`;
+
+      const frontBox = document.createElement('div');
+      frontBox.className = 'rounded-xl border border-slate-800 bg-slate-900/90 p-4 text-base font-medium text-white';
+      frontBox.textContent = card.front;
+
+      studyAreaEl.append(top, frontBox);
+
+      if (showAnswer) {
+        const backBox = document.createElement('div');
+        backBox.className = 'mt-3 rounded-xl border border-indigo-500/30 bg-indigo-950/25 p-4 text-base text-indigo-100';
+        backBox.textContent = card.back;
+
+        const choiceRow = document.createElement('div');
+        choiceRow.className = 'mt-4 flex flex-wrap gap-2.5';
+
+        const dontKnowBtn = document.createElement('button');
+        dontKnowBtn.type = 'button';
+        dontKnowBtn.textContent = "Don't Know [1]";
+        dontKnowBtn.className = 'rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-rose-500';
+        dontKnowBtn.addEventListener('click', () => answerCurrentCard(false));
+
+        const knowBtn = document.createElement('button');
+        knowBtn.type = 'button';
+        knowBtn.textContent = 'Know [2]';
+        knowBtn.className = 'rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500';
+        knowBtn.addEventListener('click', () => answerCurrentCard(true));
+
+        choiceRow.append(dontKnowBtn, knowBtn);
+        studyAreaEl.append(backBox, choiceRow);
+      } else {
+        const showBtn = document.createElement('button');
+        showBtn.type = 'button';
+        showBtn.textContent = 'Show Answer [Space]';
+        showBtn.className = 'mt-4 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500';
+        showBtn.addEventListener('click', () => {
+          showAnswer = true;
+          renderStudy();
+        });
+        studyAreaEl.appendChild(showBtn);
+      }
+    }
+
+    function getVisibleCards() {
+      const q = cardFilterEl.value.trim().toLowerCase();
+      if (!q) return baseCards;
+      return baseCards.filter(
+        (c) =>
+          String(c.front ?? '').toLowerCase().includes(q) ||
+          String(c.back ?? '').toLowerCase().includes(q)
+      );
+    }
+
+    function renderCardsList() {
+      cardsListEl.innerHTML = '';
+      const visible = getVisibleCards();
+      cardsCountEl.textContent = String(visible.length);
+
+      if (!activeDeck || visible.length === 0) {
+        cardsListEl.innerHTML = '<li class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-400">No cards to show.</li>';
+        return;
+      }
+
+      const canEdit = isDeckOwner();
+
+      for (const card of visible) {
+        const li = document.createElement('li');
+        li.className = 'flex flex-col justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 sm:flex-row sm:items-center';
+
+        if (canEdit && editingCardId === card.id) {
+          const inputsWrap = document.createElement('div');
+          inputsWrap.className = 'grid flex-1 gap-2 sm:grid-cols-2';
+
+          const frontEdit = document.createElement('input');
+          frontEdit.type = 'text';
+          frontEdit.value = card.front;
+          frontEdit.className = 'rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:outline-none';
+
+          const backEdit = document.createElement('input');
+          backEdit.type = 'text';
+          backEdit.value = card.back;
+          backEdit.className = 'rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:outline-none';
+
+          inputsWrap.append(frontEdit, backEdit);
+
+          const btns = document.createElement('div');
+          btns.className = 'flex shrink-0 gap-2';
+
+          const saveBtn = document.createElement('button');
+          saveBtn.type = 'button';
+          saveBtn.textContent = 'Save';
+          saveBtn.className = 'rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500';
+          saveBtn.addEventListener('click', async () => {
+            const nextFront = frontEdit.value.trim();
+            const nextBack = backEdit.value.trim();
+            if (!nextFront || !nextBack) {
+              setStatus('Please fill in both front and back.');
+              return;
+            }
+            const { error } = await supabase.rpc('update_owned_card', {
+              p_username: currentUser.username,
+              p_password_hash: currentUser.password_hash,
+              p_deck_id: Number(activeDeck.id),
+              p_card_id: Number(card.id),
+              p_front: nextFront,
+              p_back: nextBack
+            });
+            if (error) {
+              setStatus('Could not save changes: ' + error.message);
+              return;
+            }
+            editingCardId = null;
+            setStatus('Card updated.');
+            await openDeck(activeDeck.id, { preserveQueue: true });
+          });
+
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.className = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700';
+          cancelBtn.addEventListener('click', () => {
+            editingCardId = null;
+            renderCardsList();
+          });
+
+          btns.append(saveBtn, cancelBtn);
+          li.append(inputsWrap, btns);
+        } else {
+          const textDiv = document.createElement('div');
+          textDiv.className = 'min-w-0 flex-1';
+          textDiv.innerHTML =
+            `<span class="font-medium text-white">${escapeHtml(card.front)}</span>` +
+            `<span class="mx-2 text-slate-600">→</span>` +
+            `<span class="text-slate-300">${escapeHtml(card.back)}</span>`;
+
+          li.appendChild(textDiv);
+
+          if (canEdit) {
+            const btns = document.createElement('div');
+            btns.className = 'flex shrink-0 gap-1.5';
+
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.textContent = 'Edit';
+            editBtn.className = 'rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800';
+            editBtn.addEventListener('click', () => {
+              editingCardId = card.id;
+              renderCardsList();
+            });
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.textContent = 'Delete';
+            delBtn.className = 'rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs text-rose-300 hover:bg-rose-500/20';
+            delBtn.addEventListener('click', async () => {
+              if (!activeDeck) return;
+              const { error } = await supabase.rpc('delete_owned_card', {
+                p_username: currentUser.username,
+                p_password_hash: currentUser.password_hash,
+                p_deck_id: Number(activeDeck.id),
+                p_card_id: Number(card.id)
+              });
+
+              if (error) {
+                setStatus('Could not delete card: ' + error.message);
+                return;
+              }
+
+              setStatus('Card deleted.');
+              await openDeck(activeDeck.id, { preserveQueue: true });
+            });
+
+            btns.append(editBtn, delBtn);
+            li.appendChild(btns);
+          }
+        }
+
+        cardsListEl.appendChild(li);
+      }
+    }
+
+    document.getElementById('clone-deck-btn').addEventListener('click', async () => {
+      if (!currentUser || !activeDeck) return;
+
+      const { data: createdRows, error: deckErr } = await supabase.rpc('create_user_deck', {
+        p_username: currentUser.username,
+        p_password_hash: currentUser.password_hash,
+        p_opis: `${activeDeck.opis} (copy)`
+      });
+
+      const createdDeck = Array.isArray(createdRows) ? createdRows[0] : createdRows;
+      if (deckErr || !createdDeck) {
+        setStatus('Could not clone deck: ' + (deckErr?.message || 'failed'));
+        return;
+      }
+
+      for (const card of baseCards) {
+        await supabase.rpc('add_card_to_owned_deck', {
+          p_username: currentUser.username,
+          p_password_hash: currentUser.password_hash,
+          p_deck_id: Number(createdDeck.id),
+          p_front: card.front,
+          p_back: card.back
+        });
+      }
+
+      studyDeckIdEl.value = createdDeck.id;
+      createDeckIdEl.value = createdDeck.id;
+      await openDeck(createdDeck.id);
+      setStatus(`Cloned "${activeDeck.opis}" into your decks (ID: ${createdDeck.id}).`);
+    });
+
+    document.getElementById('shuffle-queue-btn').addEventListener('click', () => {
+      if (studyQueue.length === 0) return;
+      studyQueue = shuffleArray(studyQueue);
+      showAnswer = false;
+      renderStudy();
+      setStatus('Queue shuffled.');
+    });
+
+    document.getElementById('restart-queue-btn').addEventListener('click', () => {
+      if (!activeDeck || baseCards.length === 0) return;
+      initQueue(baseCards, true);
+      setStatus('Queue reset and shuffled.');
+    });
+
+    cardFilterEl.addEventListener('input', renderCardsList);
+
+    async function createDeck() {
+      if (!currentUser || !currentUser.user_id) {
+        setStatus('Log in first.');
+        return;
+      }
+      const opis = newDeckOpisEl.value.trim();
+      if (!opis) {
+        setStatus('Enter a deck name.');
+        return;
+      }
+
+      const { data: rows, error } = await supabase.rpc('create_user_deck', {
+        p_username: currentUser.username,
+        p_password_hash: currentUser.password_hash,
+        p_opis: opis
+      });
+
+      const created = Array.isArray(rows) ? rows[0] : rows;
+      if (error || !created) {
+        setStatus('Could not create deck: ' + (error?.message || 'failed'));
+        return;
+      }
+
+      newDeckOpisEl.value = '';
+      studyDeckIdEl.value = created.id;
+      createDeckIdEl.value = created.id;
+      await openDeck(created.id);
+      setStatus(`Created "${created.opis}" (ID: ${created.id}).`);
+    }
+
+    async function addFiszka() {
+      if (!currentUser || !currentUser.user_id) {
+        setStatus('Log in first.');
+        return;
+      }
+      if (!activeDeck) {
+        setStatus('Select a deck first.');
+        return;
+      }
+      if (!isDeckOwner()) {
+        setStatus('You can only add cards to decks you own.');
+        return;
+      }
+
+      const front = fiszkaFrontEl.value.trim();
+      const back = fiszkaBackEl.value.trim();
+      if (!front || !back) {
+        setStatus('Enter both front and back.');
+        return;
+      }
+
+      const { error } = await supabase.rpc('add_card_to_owned_deck', {
+        p_username: currentUser.username,
+        p_password_hash: currentUser.password_hash,
+        p_deck_id: Number(activeDeck.id),
+        p_front: front,
+        p_back: back
+      });
+
+      if (error) {
+        setStatus('Could not add card: ' + error.message);
+        return;
+      }
+
+      fiszkaFrontEl.value = '';
+      fiszkaBackEl.value = '';
+      fiszkaFrontEl.focus();
+      await openDeck(activeDeck.id, { preserveQueue: true });
+      setStatus('Card added.');
+    }
+
+    document.getElementById('study-open-btn').addEventListener('click', () => {
+      createDeckIdEl.value = studyDeckIdEl.value;
+      openDeck(studyDeckIdEl.value);
+    });
+    studyDeckIdEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        createDeckIdEl.value = studyDeckIdEl.value;
+        openDeck(studyDeckIdEl.value);
+      }
+    });
+
+    document.getElementById('create-open-btn').addEventListener('click', () => {
+      studyDeckIdEl.value = createDeckIdEl.value;
+      openDeck(createDeckIdEl.value);
+    });
+    createDeckIdEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        studyDeckIdEl.value = createDeckIdEl.value;
+        openDeck(createDeckIdEl.value);
+      }
+    });
+
+    document.getElementById('create-deck-btn').addEventListener('click', createDeck);
+    newDeckOpisEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') createDeck();
+    });
+
+    document.getElementById('add-fiszka-btn').addEventListener('click', addFiszka);
+    fiszkaBackEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addFiszka();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (currentMode !== 'study' || !activeDeck || studyQueue.length === 0) return;
+
+      if (e.code === 'Space' && !showAnswer) {
+        e.preventDefault();
+        showAnswer = true;
+        renderStudy();
+      } else if (showAnswer) {
+        if (e.key === '1') answerCurrentCard(false);
+        if (e.key === '2') answerCurrentCard(true);
+      }
+    });
+
+    async function setSessionUser(userObj, options = {}) {
+      const { quietStatus = false } = options;
+      currentUser = userObj;
+      editingCardId = null;
+
+      if (userObj && userObj.user_id && userObj.password_hash) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userObj));
+        authBox.style.display = 'none';
+        creatorWorkspace.style.display = 'block';
+        userNameEl.textContent = userObj.username;
+        if (!quietStatus) setStatus(`Signed in as ${userObj.username}`);
+        await loadMyDecks();
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+        authBox.style.display = 'grid';
+        creatorWorkspace.style.display = 'none';
+        myDecksListEl.innerHTML = '';
+        if (!quietStatus) setStatus('Ready to study.');
+      }
+
+      syncOwnerControls();
+      renderActiveDeckHeader();
+      renderCardsList();
+    }
+
+    async function registerUser() {
+      const username = regUsernameEl.value.trim();
+      const password = regPassEl.value;
+      if (!username || password.length < 4) {
+        setStatus('Enter a username and password (at least 4 characters).');
+        return;
+      }
+
+      const { data: existing, error: findErr } = await supabase
+        .from(USERS_TABLE)
+        .select('id, user_id, username')
+        .eq('username', username)
+        .limit(1);
+
+      if (findErr) {
+        setStatus('Registration error: ' + findErr.message);
+        return;
+      }
+      if (existing && existing.length > 0) {
+        setStatus('That username is already taken.');
+        return;
+      }
+
+      const password_hash = await hashPassword(username, password);
+      const generatedUserId = crypto.randomUUID();
+
+      const { data: created, error: insErr } = await supabase
+        .from(USERS_TABLE)
+        .insert([{
+          username,
+          password_hash,
+          user_id: generatedUserId
+        }])
+        .select('*')
+        .single();
+
+      if (insErr) {
+        const { data: createdFallback, error: fallbackErr } = await supabase
+          .from(USERS_TABLE)
+          .insert([{ username, password_hash }])
+          .select('*')
+          .single();
+
+        if (fallbackErr || !createdFallback) {
+          setStatus('Registration error: ' + (insErr.message || fallbackErr?.message || 'failed'));
+          return;
+        }
+
+        const uid = resolveUserId(createdFallback);
+        regUsernameEl.value = '';
+        regPassEl.value = '';
+        await setSessionUser({
+          id: createdFallback.id,
+          user_id: uid,
+          username: createdFallback.username,
+          password_hash
+        });
+        return;
+      }
+
+      const uid = resolveUserId(created);
+      regUsernameEl.value = '';
+      regPassEl.value = '';
+      await setSessionUser({
+        id: created.id,
+        user_id: uid,
+        username: created.username,
+        password_hash
+      });
+    }
+
+    async function loginUser() {
+      const username = loginUsernameEl.value.trim();
+      const password = loginPassEl.value;
+      if (!username || !password) {
+        setStatus('Enter your username and password.');
+        return;
+      }
+
+      const password_hash = await hashPassword(username, password);
+      const { data, error } = await supabase
+        .from(USERS_TABLE)
+        .select('*')
+        .eq('username', username)
+        .eq('password_hash', password_hash)
+        .maybeSingle();
+
+      if (error) {
+        setStatus('Sign-in error: ' + error.message);
+        return;
+      }
+      if (!data) {
+        setStatus('Invalid username or password.');
+        return;
+      }
+
+      const uid = resolveUserId(data);
+      loginUsernameEl.value = '';
+      loginPassEl.value = '';
+      await setSessionUser({
+        id: data.id,
+        user_id: uid,
+        username: data.username,
+        password_hash
+      });
+    }
+
+    document.getElementById('reg-btn').addEventListener('click', registerUser);
+    regPassEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') registerUser();
+    });
+
+    document.getElementById('login-btn').addEventListener('click', loginUser);
+    loginPassEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loginUser();
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      setSessionUser(null);
+    });
+
+    document.getElementById('delete-account-btn').addEventListener('click', async () => {
+      if (!currentUser) return;
+      const confirmed = window.confirm(
+        `Delete account "${currentUser.username}" along with all your decks and flashcards? This cannot be undone.`
+      );
+      if (!confirmed) return;
+
+      const { error } = await supabase.rpc('delete_user_account', {
+        p_username: currentUser.username,
+        p_password_hash: currentUser.password_hash
+      });
+
+      if (error) {
+        setStatus('Could not delete account: ' + error.message);
+        return;
+      }
+
+      clearActiveDeck();
+      await setSessionUser(null);
+      setStatus('Account and all associated decks deleted.');
+    });
+
+    setMode('study');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialDeckParam = urlParams.get('deck');
+    const initialDeckId = initialDeckParam ? Number(initialDeckParam) : null;
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        await setSessionUser(JSON.parse(saved), { quietStatus: Boolean(initialDeckId) });
+      } catch {
+        await setSessionUser(null, { quietStatus: Boolean(initialDeckId) });
+      }
+    } else {
+      await setSessionUser(null, { quietStatus: Boolean(initialDeckId) });
+    }
+
+    if (initialDeckId && Number.isInteger(initialDeckId) && initialDeckId > 0) {
+      studyDeckIdEl.value = initialDeckId;
+      createDeckIdEl.value = initialDeckId;
+      setMode('study');
+      await openDeck(initialDeckId);
+    }
+  </script>
+</body>
+</html>
