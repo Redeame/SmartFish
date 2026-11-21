@@ -132,7 +132,7 @@
               id="reg-pass"
               type="password"
               autocomplete="new-password"
-              placeholder="Password (min 4 characters)"
+              placeholder="Password (min 8 characters)"
               class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
             />
             <button
@@ -306,11 +306,13 @@
       'sb_publishable_raWi0-_mPORIxIdiWeEQSg_YiYEumjk'
     );
 
-    const USERS_TABLE = 'Uzytkownicy';
-    const STORAGE_KEY = 'fiszki_user_session_v3';
+    // Usernames are turned into a hidden email-style identifier for Supabase Auth.
+    // No email is ever sent ("Confirm email" must be OFF in Supabase). If sign-up says the
+    // email is invalid, change this to a domain that has MX records.
+    const AUTH_EMAIL_DOMAIN = 'gmail.com';
 
     let currentMode = 'study';
-    let currentUser = null; // { id, user_id, username, password_hash }
+    let currentUser = null; // { id, user_id, username }
     let activeDeck = null;  // { id, opis, id_fiszek: number[], user_id }
     let baseCards = [];
     let studyQueue = [];
@@ -437,22 +439,27 @@
     modeStudyBtn.addEventListener('click', () => setMode('study'));
     modeCreateBtn.addEventListener('click', () => setMode('create'));
 
-    async function hashPassword(username, password) {
-      const data = new TextEncoder().encode(`${username.toLowerCase()}:${password}`);
-      const buf = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(buf))
+    async function usernameToEmail(username) {
+      const norm = username.trim().normalize('NFC').toLowerCase();
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('fiszki:' + norm));
+      const hex = Array.from(new Uint8Array(buf))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
+      return `u${hex.slice(0, 48)}@${AUTH_EMAIL_DOMAIN}`;
+    }
+
+    function userFromAuth(authUser) {
+      if (!authUser) return null;
+      return {
+        id: authUser.id,
+        user_id: authUser.id,
+        username: authUser.user_metadata?.username || 'user'
+      };
     }
 
     function toIdArray(val) {
       if (!Array.isArray(val)) return [];
       return val.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0);
-    }
-
-    function resolveUserId(row) {
-      if (!row) return null;
-      return row.user_id ?? row.id ?? null;
     }
 
     function shuffleArray(arr) {
@@ -525,8 +532,6 @@
       if (!confirmed) return;
 
       const { error } = await supabase.rpc('delete_owned_deck', {
-        p_username: currentUser.username,
-        p_password_hash: currentUser.password_hash,
         p_deck_id: Number(deckRow.id)
       });
 
@@ -849,8 +854,6 @@
               return;
             }
             const { error } = await supabase.rpc('update_owned_card', {
-              p_username: currentUser.username,
-              p_password_hash: currentUser.password_hash,
               p_deck_id: Number(activeDeck.id),
               p_card_id: Number(card.id),
               p_front: nextFront,
@@ -906,8 +909,6 @@
             delBtn.addEventListener('click', async () => {
               if (!activeDeck) return;
               const { error } = await supabase.rpc('delete_owned_card', {
-                p_username: currentUser.username,
-                p_password_hash: currentUser.password_hash,
                 p_deck_id: Number(activeDeck.id),
                 p_card_id: Number(card.id)
               });
@@ -934,8 +935,6 @@
       if (!currentUser || !activeDeck) return;
 
       const { data: createdRows, error: deckErr } = await supabase.rpc('create_user_deck', {
-        p_username: currentUser.username,
-        p_password_hash: currentUser.password_hash,
         p_opis: `${activeDeck.opis} (copy)`
       });
 
@@ -947,8 +946,6 @@
 
       for (const card of baseCards) {
         await supabase.rpc('add_card_to_owned_deck', {
-          p_username: currentUser.username,
-          p_password_hash: currentUser.password_hash,
           p_deck_id: Number(createdDeck.id),
           p_front: card.front,
           p_back: card.back
@@ -989,8 +986,6 @@
       }
 
       const { data: rows, error } = await supabase.rpc('create_user_deck', {
-        p_username: currentUser.username,
-        p_password_hash: currentUser.password_hash,
         p_opis: opis
       });
 
@@ -1029,8 +1024,6 @@
       }
 
       const { error } = await supabase.rpc('add_card_to_owned_deck', {
-        p_username: currentUser.username,
-        p_password_hash: currentUser.password_hash,
         p_deck_id: Number(activeDeck.id),
         p_front: front,
         p_back: back
@@ -1100,15 +1093,13 @@
       currentUser = userObj;
       editingCardId = null;
 
-      if (userObj && userObj.user_id && userObj.password_hash) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(userObj));
+      if (userObj && userObj.user_id) {
         authBox.style.display = 'none';
         creatorWorkspace.style.display = 'block';
         userNameEl.textContent = userObj.username;
         if (!quietStatus) setStatus(`Signed in as ${userObj.username}`);
         await loadMyDecks();
       } else {
-        localStorage.removeItem(STORAGE_KEY);
         authBox.style.display = 'grid';
         creatorWorkspace.style.display = 'none';
         myDecksListEl.innerHTML = '';
@@ -1123,72 +1114,38 @@
     async function registerUser() {
       const username = regUsernameEl.value.trim();
       const password = regPassEl.value;
-      if (!username || password.length < 4) {
-        setStatus('Enter a username and password (at least 4 characters).');
+      if (!username || username.length > 30) {
+        setStatus('Enter a username (up to 30 characters).');
+        return;
+      }
+      if (password.length < 8) {
+        setStatus('Password must be at least 8 characters.');
         return;
       }
 
-      const { data: existing, error: findErr } = await supabase
-        .from(USERS_TABLE)
-        .select('id, user_id, username')
-        .eq('username', username)
-        .limit(1);
+      const email = await usernameToEmail(username);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username } }
+      });
 
-      if (findErr) {
-        setStatus('Registration error: ' + findErr.message);
+      if (error) {
+        setStatus(
+          /registered|exists/i.test(error.message)
+            ? 'That username is already taken.'
+            : 'Registration error: ' + error.message
+        );
         return;
       }
-      if (existing && existing.length > 0) {
-        setStatus('That username is already taken.');
-        return;
-      }
-
-      const password_hash = await hashPassword(username, password);
-      const generatedUserId = crypto.randomUUID();
-
-      const { data: created, error: insErr } = await supabase
-        .from(USERS_TABLE)
-        .insert([{
-          username,
-          password_hash,
-          user_id: generatedUserId
-        }])
-        .select('*')
-        .single();
-
-      if (insErr) {
-        const { data: createdFallback, error: fallbackErr } = await supabase
-          .from(USERS_TABLE)
-          .insert([{ username, password_hash }])
-          .select('*')
-          .single();
-
-        if (fallbackErr || !createdFallback) {
-          setStatus('Registration error: ' + (insErr.message || fallbackErr?.message || 'failed'));
-          return;
-        }
-
-        const uid = resolveUserId(createdFallback);
-        regUsernameEl.value = '';
-        regPassEl.value = '';
-        await setSessionUser({
-          id: createdFallback.id,
-          user_id: uid,
-          username: createdFallback.username,
-          password_hash
-        });
+      if (!data.session) {
+        setStatus('That username may already be taken, or "Confirm email" is still ON in Supabase.');
         return;
       }
 
-      const uid = resolveUserId(created);
       regUsernameEl.value = '';
       regPassEl.value = '';
-      await setSessionUser({
-        id: created.id,
-        user_id: uid,
-        username: created.username,
-        password_hash
-      });
+      await setSessionUser(userFromAuth(data.user));
     }
 
     async function loginUser() {
@@ -1199,32 +1156,16 @@
         return;
       }
 
-      const password_hash = await hashPassword(username, password);
-      const { data, error } = await supabase
-        .from(USERS_TABLE)
-        .select('*')
-        .eq('username', username)
-        .eq('password_hash', password_hash)
-        .maybeSingle();
-
-      if (error) {
-        setStatus('Sign-in error: ' + error.message);
-        return;
-      }
-      if (!data) {
+      const email = await usernameToEmail(username);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.user) {
         setStatus('Invalid username or password.');
         return;
       }
 
-      const uid = resolveUserId(data);
       loginUsernameEl.value = '';
       loginPassEl.value = '';
-      await setSessionUser({
-        id: data.id,
-        user_id: uid,
-        username: data.username,
-        password_hash
-      });
+      await setSessionUser(userFromAuth(data.user));
     }
 
     document.getElementById('reg-btn').addEventListener('click', registerUser);
@@ -1237,8 +1178,9 @@
       if (e.key === 'Enter') loginUser();
     });
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      setSessionUser(null);
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      await setSessionUser(null);
     });
 
     document.getElementById('delete-account-btn').addEventListener('click', async () => {
@@ -1248,16 +1190,14 @@
       );
       if (!confirmed) return;
 
-      const { error } = await supabase.rpc('delete_user_account', {
-        p_username: currentUser.username,
-        p_password_hash: currentUser.password_hash
-      });
+      const { error } = await supabase.rpc('delete_user_account');
 
       if (error) {
         setStatus('Could not delete account: ' + error.message);
         return;
       }
 
+      await supabase.auth.signOut({ scope: 'local' });
       clearActiveDeck();
       await setSessionUser(null);
       setStatus('Account and all associated decks deleted.');
@@ -1269,16 +1209,12 @@
     const initialDeckParam = urlParams.get('deck');
     const initialDeckId = initialDeckParam ? Number(initialDeckParam) : null;
 
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        await setSessionUser(JSON.parse(saved), { quietStatus: Boolean(initialDeckId) });
-      } catch {
-        await setSessionUser(null, { quietStatus: Boolean(initialDeckId) });
-      }
-    } else {
-      await setSessionUser(null, { quietStatus: Boolean(initialDeckId) });
-    }
+    const { data: sessionData } = await supabase.auth.getSession();
+    await setSessionUser(userFromAuth(sessionData.session?.user), { quietStatus: Boolean(initialDeckId) });
+
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && currentUser) setSessionUser(null);
+    });
 
     if (initialDeckId && Number.isInteger(initialDeckId) && initialDeckId > 0) {
       studyDeckIdEl.value = initialDeckId;
